@@ -2,6 +2,12 @@
 
 Download [webtoon](https://www.webtoons.com/en/) comics as PDFs using a terminal/command line.
 
+## Usage
+
+```shell
+webtoon-dl <your-webtoon-url>
+```
+
 ## Installation
 
 ### Homebrew
@@ -29,9 +35,3 @@ go install github.com/robinovitch61/webtoon-dl@latest
 
 Clone this repo, build from source with `cd <cloned_repo> && go build`, then move the binary to somewhere accessible in
 your `path`, e.g. `mv ./webtoon-dl /usr/local/bin`.
-
-## Usage
-
-```shell
-webtoon-dl <your-webtoon-url>
-```
