@@ -1,0 +1,65 @@
+project_name: webtoon-dl
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - binary: webtoon-dl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - freebsd
+      - linux
+      - windows
+
+archives:
+  - name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_
+      {{- if eq .Os "darwin" }}Darwin
+      {{- else if eq .Os "linux" }}Linux
+      {{- else if eq .Os "windows" }}Windows
+      {{- else }}{{ .Os }}{{ end }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+universal_binaries:
+  - replace: true
+
+release:
+  github:
+    owner: robinovitch61
+    name: webtoon-dl
+
+brews:
+  - name: webtoon-dl
+    homepage: https://github.com/robinovitch61/webtoon-dl
+    description: "Download webtoon comics as pdfs."
+    folder: Formula
+    commit_author:
+      name: "Leo Robinovitch"
+      email: "leorobinovitch@gmail.com"
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    repository:
+      owner: robinovitch61
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+
+gomod:
+  proxy: true
