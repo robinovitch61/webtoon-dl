@@ -105,8 +105,8 @@ func main() {
 	outURL = strings.ReplaceAll(outURL, "webtoons.com/", "")
 	outURL = strings.Split(outURL, "?")[0]
 	outURL = strings.ReplaceAll(outURL, "/viewer", "")
-	outURL = strings.ReplaceAll(outURL, string(os.PathSeparator), "-")
-	outPath := "./" + outURL + ".pdf"
+	outURL = strings.ReplaceAll(outURL, "/", "-")
+	outPath := outURL + ".pdf"
 	err := pdf.WritePdf(outPath)
 	if err != nil {
 		fmt.Println(err.Error())
