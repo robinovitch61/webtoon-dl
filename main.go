@@ -9,11 +9,16 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
+	"time"
 )
 
-func getImgLinks(url string) []string {
+func getImgLinksForEpisode(url string) []string {
 	resp, err := soup.Get(url)
+	time.Sleep(500 * time.Millisecond)
 	if err != nil {
 		fmt.Println(fmt.Sprintf("Error fetching page: %v", err))
 		os.Exit(1)
@@ -23,9 +28,85 @@ func getImgLinks(url string) []string {
 
 	var imgLinks []string
 	for _, img := range imgs {
-		imgLinks = append(imgLinks, img.Attrs()["data-url"])
+		if dataURL, ok := img.Attrs()["data-url"]; ok {
+			imgLinks = append(imgLinks, dataURL)
+		}
 	}
 	return imgLinks
+}
+
+func getEpisodeLinksForPage(url string) ([]string, error) {
+	resp, err := soup.Get(url)
+	time.Sleep(500 * time.Millisecond)
+	if err != nil {
+		return []string{}, fmt.Errorf("error fetching page: %v", err)
+	}
+	doc := soup.HTMLParse(resp)
+	episodeURLs := doc.Find("div", "class", "detail_lst").FindAll("a")
+	var links []string
+	for _, episodeURL := range episodeURLs {
+		if href := episodeURL.Attrs()["href"]; strings.Contains(href, "/viewer") {
+			links = append(links, href)
+		}
+	}
+	return links, nil
+}
+
+func getImgLinks(url string) []string {
+	if strings.Contains(url, "/viewer") {
+		// assume viewing single episode
+		return getImgLinksForEpisode(url)
+	} else {
+		// assume viewing list of episodes
+		re := regexp.MustCompile("&page=[0-9]+")
+		allEpisodeLinks := make(map[string]struct{})
+		foundLastPage := false
+		for page := 1; !foundLastPage; page++ {
+			url = re.ReplaceAllString(url, "") + fmt.Sprintf("&page=%d", page)
+			episodeLinks, err := getEpisodeLinksForPage(url)
+			if err != nil {
+				break
+			}
+			for _, episodeLink := range episodeLinks {
+				// when you go past the last page, it just rerenders the last page
+				if _, ok := allEpisodeLinks[episodeLink]; ok {
+					foundLastPage = true
+					break
+				}
+				allEpisodeLinks[episodeLink] = struct{}{}
+			}
+			if !foundLastPage {
+				println(url)
+			}
+		}
+		keys := make([]string, 0, len(allEpisodeLinks))
+		for k := range allEpisodeLinks {
+			keys = append(keys, k)
+		}
+		// extract episode_no from url and sort by it
+		re = regexp.MustCompile("episode_no=([0-9]+)")
+		episodeNo := func(episodeLink string) int {
+			matches := re.FindStringSubmatch(episodeLink)
+			if len(matches) != 2 {
+				return 0
+			}
+			episodeNo, err := strconv.Atoi(matches[1])
+			if err != nil {
+				return 0
+			}
+			return episodeNo
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			return episodeNo(keys[i]) < episodeNo(keys[j])
+		})
+
+		var allImgLinks []string
+		for _, episodeLink := range keys {
+			println(episodeLink)
+			allImgLinks = append(allImgLinks, getImgLinksForEpisode(episodeLink)...)
+		}
+		return allImgLinks
+	}
 }
 
 func fetchImage(imgLink string) []byte {
