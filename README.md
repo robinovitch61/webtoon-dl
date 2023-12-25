@@ -5,7 +5,14 @@ Download [webtoon](https://www.webtoons.com/en/) comics as PDFs using a terminal
 ## Usage
 
 ```shell
-webtoon-dl <your-webtoon-url>
+# download single episodes
+webtoon-dl <your-webtoon-episode-url>
+
+# download entire series
+webtoon-dl <your-webtoon-series-url>
+
+# create single pdfs from a range of episodes (inclusive)
+webtoon-dl --min-ep=10 --max-ep=20 <your-webtoon-series-url>
 ```
 
 ## Installation
