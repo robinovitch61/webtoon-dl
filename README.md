@@ -31,8 +31,10 @@ webtoon-dl --min-ep=10 --max-ep=20 "<your-webtoon-series-url>"
 
 ```shell
 brew install robinovitch61/tap/webtoon-dl
+```
 
-# to upgrade
+To upgrade the version installed with homebrew:
+```shell
 brew update && brew upgrade webtoon-dl
 ```
 
