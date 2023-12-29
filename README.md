@@ -6,14 +6,24 @@ Download [webtoon](https://www.webtoons.com/en/) comics as PDFs using a terminal
 
 ```shell
 # download single episodes
-webtoon-dl <your-webtoon-episode-url>
+webtoon-dl "<your-webtoon-episode-url>"
 
 # download entire series
-webtoon-dl <your-webtoon-series-url>
+webtoon-dl "<your-webtoon-series-url>"
 
 # create single pdfs from a range of episodes (inclusive)
-webtoon-dl --min-ep=10 --max-ep=20 <your-webtoon-series-url>
+webtoon-dl --min-ep=10 --max-ep=20 "<your-webtoon-series-url>"
 ```
+
+> [!IMPORTANT]  
+> Some terminal settings (e.g. [Oh My Zsh](https://ohmyz.sh)) make it so pasted URLs will be [automatically escaped](https://github.com/ohmyzsh/ohmyzsh/issues/7632).
+> You want to EITHER surround your unescaped webtoon URL with double quotes (otherwise you'll get something like a "no matches found" error) OR leave the double quotes off escaped URLs.
+> So either of these will work:
+> - `webtoon-dl "https://www.webtoons.com/en/.../list?title_no=123"`
+> - `webtoon-dl https://www.webtoons.com/en/.../list\?title_no\=123`
+> 
+> But this won't work:
+> - `webtoon-dl "https://www.webtoons.com/en/.../list\?title_no\=123"`
 
 ## Installation
 
