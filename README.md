@@ -52,4 +52,4 @@ your `path`, e.g. `mv ./webtoon-dl /usr/local/bin`.
    1. First, type `cd Downloads` and hit enter to get to your Downloads folder
    2. Now confirm that "webtoon-dl.exe" shows up in the output when you type `dir` and hit enter
    3. Setup is over!
-5. Still in the Command Prompt, now run, for example, `webtoon-dl.exe "https://www.webtoons.com/en/slice-of-life/bugtopia/ep-8-a-special-gift/viewer?title_no=4842&episode_no=8". This will run and print what it's doing, then output a PDF file of that comic in your Downloads folder.
+5. Still in the Command Prompt, now run, for example, `webtoon-dl.exe "https://www.webtoons.com/en/slice-of-life/bugtopia/ep-8-a-special-gift/viewer?title_no=4842&episode_no=8"`. This will run and print what it's doing, then output a PDF file of that comic in your Downloads folder.
