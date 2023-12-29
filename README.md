@@ -30,7 +30,7 @@ brew update && brew upgrade webtoon-dl
 
 Download the relevant binary for your operating system (MacOS = Darwin) from
 the [latest github release](https://github.com/robinovitch61/webtoon-dl/releases). Unpack/extract it, then move the
-binary or .exe to somewhere accessible in your `path`, e.g. `mv ./webtoon-dl /usr/local/bin`.
+binary or .exe to somewhere accessible in your `PATH`, e.g. `mv ./webtoon-dl /usr/local/bin`.
 
 ### Using [go installed on your machine](https://go.dev/doc/install) (Mac, Linux, Windows)
 
@@ -41,7 +41,7 @@ go install github.com/robinovitch61/webtoon-dl@latest
 ### Build from Source (Mac, Linux, Windows)
 
 Clone this repo, build from source with `cd <cloned_repo> && go build`, then move the binary to somewhere accessible in
-your `path`, e.g. `mv ./webtoon-dl /usr/local/bin`.
+your `PATH`, e.g. `mv ./webtoon-dl /usr/local/bin`.
 
 ### Step by Step Windows Instructions
 
