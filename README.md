@@ -8,12 +8,21 @@ Download [webtoon](https://www.webtoons.com/en/) comics as PDFs using a terminal
 # download single episodes
 webtoon-dl "<your-webtoon-episode-url>"
 
-# download entire series
+# download entire series, default 10 episodes per pdf
 webtoon-dl "<your-webtoon-series-url>"
 
-# create single pdfs from a range of episodes (inclusive)
+# specify a range of episodes (inclusive on both ends)
 webtoon-dl --min-ep=10 --max-ep=20 "<your-webtoon-series-url>"
+
+# change the number of episodes per file, e.g. this would create 11 files
+webtoon-dl --min-ep=10 --max-ep=20 --eps-per-file=1 "<your-webtoon-series-url>"
+
+# download entire series into a single file (GENERALLY NOT RECOMMENDED)
+webtoon-dl --eps-per-file=1000000 "<your-webtoon-series-url>"
 ```
+
+> [!IMPORTANT]
+> The episode numbers specified in `--min-ep` and `--max-ep` will correspond to the URL parameter `&episode_no=`, which may be different from the episode number in the title
 
 > [!IMPORTANT]  
 > Some terminal settings (e.g. [Oh My Zsh](https://ohmyz.sh)) make it so pasted URLs will be [automatically escaped](https://github.com/ohmyzsh/ohmyzsh/issues/7632).

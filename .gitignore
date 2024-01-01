@@ -3,3 +3,4 @@
 *.jpg
 *.jpeg
 *.pdf
+.DS_Store
