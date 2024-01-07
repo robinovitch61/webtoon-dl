@@ -24,13 +24,13 @@ webtoon-dl --eps-per-file=1000000 "<your-webtoon-series-url>"
 > [!IMPORTANT]
 > The episode numbers specified in `--min-ep` and `--max-ep` will correspond to the URL parameter `&episode_no=`, which may be different from the episode number in the title
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > Some terminal settings (e.g. [Oh My Zsh](https://ohmyz.sh)) make it so pasted URLs will be [automatically escaped](https://github.com/ohmyzsh/ohmyzsh/issues/7632).
 > You want to EITHER surround your unescaped webtoon URL with double quotes (otherwise you'll get something like a "no matches found" error) OR leave the double quotes off escaped URLs.
 > So either of these will work:
 > - `webtoon-dl "https://www.webtoons.com/.../list?title_no=123"`
 > - `webtoon-dl https://www.webtoons.com/.../list\?title_no\=123`
-> 
+>
 > But this won't work:
 > - `webtoon-dl "https://www.webtoons.com/.../list\?title_no\=123"`
 
@@ -59,12 +59,7 @@ binary or .exe to somewhere accessible in your `PATH`, e.g. `mv ./webtoon-dl /us
 go install github.com/robinovitch61/webtoon-dl@latest
 ```
 
-### Build from Source (Mac, Linux, Windows)
-
-Clone this repo, build from source with `cd <cloned_repo> && go build`, then move the binary to somewhere accessible in
-your `PATH`, e.g. `mv ./webtoon-dl /usr/local/bin`.
-
-### Step by Step Windows Instructions
+### Step by Step Windows Installation Instructions
 
 1. Check the processor type you're using by going to System Information and looking at Processor. Go to [this page](https://github.com/robinovitch61/webtoon-dl/releases). If your Processor says "Intel" anywhere, download the file that ends in "Windows\_i386.tar.gz" by clicking it. If it says "Arm", instead click the file that ends in "Windows\_arm64.tar.gz".
 2. Once the file is downloaded to your Downloads folder, you have to unzip and extract it. If you use [7zip](https://www.7-zip.org/), you can right click the file and hit "7zip -> Extract here", then right click the ".tar" file that's created and hit "7zip -> Extract here" again. You should end up with a file called "webtoon-dl.exe" in your Downloads folder.
@@ -74,3 +69,8 @@ your `PATH`, e.g. `mv ./webtoon-dl /usr/local/bin`.
    2. Now confirm that "webtoon-dl.exe" shows up in the output when you type `dir` and hit enter
    3. Setup is over!
 5. Still in the Command Prompt, now run, for example, `webtoon-dl.exe "https://www.webtoons.com/en/slice-of-life/bugtopia/ep-8-a-special-gift/viewer?title_no=4842&episode_no=8"`. This will run and print what it's doing, then output a PDF file of that comic in your Downloads folder.
+
+## Build from Source (Mac, Linux, Windows)
+
+Clone this repo, build from source with `cd <cloned_repo> && go build`. This will create the executable (e.g. `wander`) in the current directory.
+
