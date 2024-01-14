@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"flag"
 	"fmt"
@@ -22,6 +23,120 @@ type EpisodeBatch struct {
 	imgLinks []string
 	minEp    int
 	maxEp    int
+}
+
+type OutputFile interface {
+	addImg(imgLink string) error
+	save() error
+}
+
+type PdfFile struct {
+	pdf     *gopdf.GoPdf
+	outPath string
+}
+
+func NewPdfFile(outPath string) *PdfFile {
+	pdf := gopdf.GoPdf{}
+	pdf.Start(gopdf.Config{Unit: gopdf.UnitPT, PageSize: *gopdf.PageSizeA4})
+	return &PdfFile{
+		pdf:     &pdf,
+		outPath: outPath,
+	}
+}
+
+func (pf *PdfFile) addImg(imgLink string) error {
+	img := fetchImage(imgLink)
+	holder, err := gopdf.ImageHolderByBytes(img)
+	if err != nil {
+		return err
+	}
+
+	d, _, err := image.DecodeConfig(bytes.NewReader(img))
+	if err != nil {
+		return err
+	}
+
+	// gopdf assumes dpi 128 https://github.com/signintech/gopdf/issues/168
+	// W and H are in points, 1 point = 1/72 inch
+	// convert pixels (Width and Height) to points
+	// subtract 1 point to account for margins
+	pf.pdf.AddPageWithOption(gopdf.PageOption{PageSize: &gopdf.Rect{
+		W: float64(d.Width)*72/128 - 1,
+		H: float64(d.Height)*72/128 - 1,
+	}})
+	return pf.pdf.ImageByHolder(holder, 0, 0, nil)
+}
+
+func (pf *PdfFile) save() error {
+	return pf.pdf.WritePdf(pf.outPath)
+}
+
+type CbzFile struct {
+	pngs    []byte
+	outPath  string
+}
+
+func NewCbzFile(outPath string) *CbzFile {
+	return &CbzFile{
+		pngs
+		outPath: outPath,
+	}
+}
+
+func (cf *CbzFile) addImg(imgLink string) error {
+	img := fetchImage(imgLink)
+
+}
+
+func (cf *CbzFile) save() error {
+	zipFile, err := os.Create(cf.outPath)
+	if err != nil {
+		return err
+	}
+	defer func(zipFile *os.File) {
+		err := zipFile.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+	}(zipFile)
+
+	zipWriter := NewZipWriter(zipFile)
+	defer func(zipWriter *ZipWriter) {
+		err := zipWriter.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+	}(zipWriter)
+
+	for _, imgLink := range cf.imgLinks {
+		img := fetchImage(imgLink)
+		_, err := zipWriter.Write(img)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type ZipWriter struct {
+	*zip.Writer
+}
+
+func NewZipWriter(w io.Writer) *ZipWriter {
+	return &ZipWriter{zip.NewWriter(w)}
+}
+
+func (zw *ZipWriter) Write(data []byte) (int, error) {
+	f, err := zw.CreateHeader(&zip.FileHeader{
+		Name:   strconv.Itoa(time.Now().Nanosecond()),
+		Method: zip.Store,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return f.Write(data)
 }
 
 func getImgLinksForEpisode(url string) []string {
@@ -217,6 +332,27 @@ func addImgToPdf(pdf *gopdf.GoPdf, imgLink string) error {
 	return pdf.ImageByHolder(holder, 0, 0, nil)
 }
 
+func getOutPath(url string, minEp, maxEp int, outputFormat string) string {
+	outURL := strings.ReplaceAll(url, "http://", "")
+	outURL = strings.ReplaceAll(outURL, "https://", "")
+	outURL = strings.ReplaceAll(outURL, "www.", "")
+	outURL = strings.ReplaceAll(outURL, "webtoons.com/", "")
+	outURL = strings.Split(outURL, "?")[0]
+	outURL = strings.ReplaceAll(outURL, "/viewer", "")
+	outURL = strings.ReplaceAll(outURL, "/", "-")
+	if minEp != maxEp {
+		outURL = fmt.Sprintf("%s-epNo%d-epNo%d", outURL, minEp, maxEp)
+	} else {
+		outURL = fmt.Sprintf("%s-epNo%d", outURL, minEp)
+	}
+	if outputFormat == "pdf" {
+		outURL += ".pdf"
+	} else {
+		outURL += ".cbz"
+	}
+	return outURL
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: webtoon-dl <url>")
@@ -224,7 +360,8 @@ func main() {
 	}
 	minEp := flag.Int("min-ep", 0, "Minimum episode number to download (inclusive)")
 	maxEp := flag.Int("max-ep", math.MaxInt, "Maximum episode number to download (inclusive)")
-	epsPerFile := flag.Int("eps-per-file", 10, "Number of episodes to put in each PDF file")
+	epsPerFile := flag.Int("eps-per-file", 10, "Number of episodes to put in each PDF file. Default 10")
+	outputFormat := flag.String("fmt", "pdf", "Output format (pdf or cbz). Default pdf")
 	flag.Parse()
 	if *minEp > *maxEp {
 		fmt.Println("min-ep must be less than or equal to max-ep")
@@ -236,6 +373,10 @@ func main() {
 	}
 	if *minEp < 0 {
 		fmt.Println("min-ep must be greater than or equal to 0")
+		os.Exit(1)
+	}
+	if *outputFormat != "pdf" && *outputFormat != "cbz" {
+		fmt.Println("fmt must be pdf or cbz")
 		os.Exit(1)
 	}
 
@@ -251,10 +392,15 @@ func main() {
 	fmt.Println(fmt.Sprintf("saving into %d files with max of %d episodes per file", len(episodeBatches), *epsPerFile))
 
 	for _, episodeBatch := range episodeBatches {
-		pdf := gopdf.GoPdf{}
-		pdf.Start(gopdf.Config{Unit: gopdf.UnitPT, PageSize: *gopdf.PageSizeA4})
+		var output OutputFile
+		outputPath := getOutPath(url, episodeBatch.minEp, episodeBatch.maxEp, *outputFormat)
+		if *outputFormat == "pdf" {
+			output = NewPdfFile(outputPath)
+		} else {
+			output = NewCbzFile(outputPath)
+		}
 		for idx, imgLink := range episodeBatch.imgLinks {
-			err := addImgToPdf(&pdf, imgLink)
+			err := output.addImg(imgLink)
 			if err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
@@ -262,24 +408,11 @@ func main() {
 			fmt.Println(fmt.Sprintf("saving episodes %d through %d: added page %d/%d", episodeBatch.minEp, episodeBatch.maxEp, idx+1, len(episodeBatch.imgLinks)))
 		}
 
-		outURL := strings.ReplaceAll(url, "http://", "")
-		outURL = strings.ReplaceAll(outURL, "https://", "")
-		outURL = strings.ReplaceAll(outURL, "www.", "")
-		outURL = strings.ReplaceAll(outURL, "webtoons.com/", "")
-		outURL = strings.Split(outURL, "?")[0]
-		outURL = strings.ReplaceAll(outURL, "/viewer", "")
-		outURL = strings.ReplaceAll(outURL, "/", "-")
-		if episodeBatch.minEp != episodeBatch.maxEp {
-			outURL = fmt.Sprintf("%s-epNo%d-epNo%d", outURL, episodeBatch.minEp, episodeBatch.maxEp)
-		} else {
-			outURL = fmt.Sprintf("%s-epNo%d", outURL, episodeBatch.minEp)
-		}
-		outPath := outURL + ".pdf"
-		err := pdf.WritePdf(outPath)
+		err := output.save()
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)
 		}
-		fmt.Println(fmt.Sprintf("saved to %s", outPath))
+		fmt.Println(fmt.Sprintf("saved to %s", outputPath))
 	}
 }
