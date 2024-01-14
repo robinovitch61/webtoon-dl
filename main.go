@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/anaskhan96/soup"
@@ -18,10 +19,65 @@ import (
 	"time"
 )
 
+type MotiontoonJson struct {
+	Assets struct {
+		Image map[string]string `json:"image"`
+	} `json:"assets"`
+}
+
 type EpisodeBatch struct {
 	imgLinks []string
 	minEp    int
 	maxEp    int
+}
+
+func getOzPageImgLinks(doc soup.Root) []string {
+	// regex find the documentURL, e.g:
+	// viewerOptions: {
+	//        // 필수항목
+	//        containerId: '#ozViewer',
+	//        documentURL: 'https://global.apis.naver.com/lineWebtoon/webtoon/motiontoonJson.json?seq=2830&hashValue=2e0b924676bdc38241bd8fd452191fe3',
+	re := regexp.MustCompile("viewerOptions: \\{\n.*// 필수항목\n.*containerId: '#ozViewer',\n.*documentURL: '(.+)'")
+	matches := re.FindStringSubmatch(doc.HTML())
+	if len(matches) != 2 {
+		fmt.Println("could not find documentURL")
+		os.Exit(1)
+	}
+
+	// fetch json at documentURL and deserialize to MotiontoonJson
+	resp, err := soup.Get(matches[1])
+	if err != nil {
+		fmt.Println(fmt.Sprintf("Error fetching page: %v", err))
+		os.Exit(1)
+	}
+	var motionToon MotiontoonJson
+	if err := json.Unmarshal([]byte(resp), &motionToon); err != nil {
+		fmt.Println(fmt.Sprintf("Error unmarshalling json: %v", err))
+		os.Exit(1)
+	}
+
+	// get sorted keys
+	var sortedKeys []string
+	for k := range motionToon.Assets.Image {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	// get path rule, e.g:
+	// motiontoonParam: {
+	//   pathRuleParam: {
+	//     stillcut: 'https://ewebtoon-phinf.pstatic.net/motiontoon/3536_2e0b924676bdc38241bd8fd452191fe3/{=filename}?type=q70',
+	re = regexp.MustCompile("motiontoonParam: \\{\n.*pathRuleParam: \\{\n.*stillcut: '(.+)'")
+	matches = re.FindStringSubmatch(doc.HTML())
+	if len(matches) != 2 {
+		fmt.Println("could not find pathRule")
+		os.Exit(1)
+	}
+	var imgs []string
+	for _, k := range sortedKeys {
+		imgs = append(imgs, strings.ReplaceAll(matches[1], "{=filename}", motionToon.Assets.Image[k]))
+	}
+	return imgs
 }
 
 func getImgLinksForEpisode(url string) []string {
@@ -33,7 +89,10 @@ func getImgLinksForEpisode(url string) []string {
 	}
 	doc := soup.HTMLParse(resp)
 	imgs := doc.Find("div", "class", "viewer_lst").FindAll("img")
-
+	if len(imgs) == 0 {
+		// some comics seem to serve images from a different backend, something about oz
+		return getOzPageImgLinks(doc)
+	}
 	var imgLinks []string
 	for _, img := range imgs {
 		if dataURL, ok := img.Attrs()["data-url"]; ok {
