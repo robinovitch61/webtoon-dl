@@ -60,6 +60,27 @@ brews:
       name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      
+chocolateys:
+  - owners: "Leo Robinovitch"
+    authors: "Leo Robinovitch"
+    project_url: https://github.com/robinovitch61/webtoon-dl
+    url_template: "https://github.com/robinovitch61/webtoon-dl/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    license_url: https://github.com/robinovitch61/webtoon-dl/blob/main/LICENSE
+    require_license_acceptance: false
+    project_source_url: https://github.com/robinovitch61/webtoon-dl
+    docs_url: https://github.com/robinovitch61/webtoon-dl/blob/main/README.md
+    bug_tracker_url: https://github.com/robinovitch61/webtoon-dl/issues
+    tags: "webtoon webtoon-dl comics manga"
+    summary: "A cli for downloading content from webtoon.com"
+    description: |
+      # A cli for downloading content from webtoon.com
+
+      Download webtoon comics as PDFs using a terminal/command line.
+    release_notes: "https://github.com/robinovitch61/webtoon-dl/releases/tag/v{{ .Version }}"
+    api_key: "{{ .Env.CHOCOLATEY_API_KEY }}"
+    source_repo: "https://push.chocolatey.org/"
+    skip_publish: false
 
 gomod:
   proxy: true
