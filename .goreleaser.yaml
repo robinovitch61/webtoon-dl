@@ -85,6 +85,18 @@ winget:
           name: winget-pkgs
           branch: master
 
+scoops:
+  - repository:
+      owner: "robinovitch61"
+      name: scoop-bucket
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: goreleaserbot@theleo.zone
+    homepage: https://github.com/robinovitch61/webtoon-dl
+    description: "A cli for downloading content from webtoon.com"
+    license: MIT
+
 chocolateys:
   - owners: "Leo Robinovitch"
     authors: "Leo Robinovitch"
