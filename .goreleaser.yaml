@@ -15,7 +15,10 @@ builds:
       - windows
 
 archives:
-  - name_template: >-
+  - format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
       {{ .ProjectName }}_{{ .Version }}_
       {{- if eq .Os "darwin" }}Darwin
       {{- else if eq .Os "linux" }}Linux
@@ -49,7 +52,7 @@ release:
 brews:
   - name: webtoon-dl
     homepage: https://github.com/robinovitch61/webtoon-dl
-    description: "Download webtoon comics as pdfs."
+    description: "A cli for downloading content from webtoon.com"
     folder: Formula
     commit_author:
       name: "Leo Robinovitch"
@@ -60,7 +63,28 @@ brews:
       name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-      
+
+winget:
+  - name: webtoon-dl
+    publisher: robinovitch61
+    license: MIT
+    copyright: "Leo Robinovitch"
+    homepage: https://github.com/robinovitch61/webtoon-dl
+    short_description: "A cli for downloading content from webtoon.com"
+    package_identifier: "robinovitch61.webtoon-dl"
+    repository:
+      owner: "robinovitch61"
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      name: winget-pkgs
+      branch: "{{.ProjectName}}-{{.Version}}"
+      pull_request:
+        enabled: true
+        draft: false
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+
 chocolateys:
   - owners: "Leo Robinovitch"
     authors: "Leo Robinovitch"
