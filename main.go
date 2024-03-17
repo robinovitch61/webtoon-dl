@@ -313,6 +313,10 @@ func main() {
 		pdf := gopdf.GoPdf{}
 		pdf.Start(gopdf.Config{Unit: gopdf.UnitPT, PageSize: *gopdf.PageSizeA4})
 		for idx, imgLink := range episodeBatch.imgLinks {
+			if strings.Contains(imgLink, ".gif") {
+				fmt.Println(fmt.Sprintf("WARNING: skipping gif %s", imgLink))
+				continue
+			}
 			err := addImgToPdf(&pdf, imgLink)
 			if err != nil {
 				fmt.Println(err.Error())
