@@ -78,7 +78,7 @@ func (c *PDFComicFile) save(outputPath string) error {
 
 type CBZComicFile struct {
 	zipWriter *zip.Writer
-	outFile   *os.File
+	buffer    *bytes.Buffer
 	numFiles  int
 }
 
@@ -86,16 +86,13 @@ type CBZComicFile struct {
 var _ ComicFile = &CBZComicFile{}
 
 func newCBZComicFile() (*CBZComicFile, error) {
-	out, err := os.CreateTemp("", "output.tmp.cbz")
-	if err != nil {
-		return nil, err
-	}
-	zipWriter := zip.NewWriter(out)
-	return &CBZComicFile{zipWriter: zipWriter, outFile: out, numFiles: 0}, nil
+	buffer := new(bytes.Buffer)
+	zipWriter := zip.NewWriter(buffer)
+	return &CBZComicFile{zipWriter: zipWriter, buffer: buffer, numFiles: 0}, nil
 }
 
 func (c *CBZComicFile) addImage(img []byte) error {
-	f, err := c.zipWriter.Create(fmt.Sprintf("%d.jpg", c.numFiles))
+	f, err := c.zipWriter.Create(fmt.Sprintf("%010d.jpg", c.numFiles))
 	if err != nil {
 		return err
 	}
@@ -108,15 +105,21 @@ func (c *CBZComicFile) addImage(img []byte) error {
 }
 
 func (c *CBZComicFile) save(outputPath string) error {
-	err := c.zipWriter.Close()
+	if err := c.zipWriter.Close(); err != nil {
+		return err
+	}
+	file, err := os.Create(outputPath)
 	if err != nil {
 		return err
 	}
-	err = c.outFile.Close()
-	if err != nil {
-		return err
-	}
-	err = os.Rename(c.outFile.Name(), outputPath)
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+	}(file)
+	_, err = c.buffer.WriteTo(file)
 	return err
 }
 
