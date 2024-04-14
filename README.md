@@ -1,6 +1,6 @@
 # webtoon-dl
 
-Download [webtoon](https://www.webtoons.com/en/) comics as PDFs using a terminal/command line.
+Download [webtoon](https://www.webtoons.com/en/) comics as PDF or CBZ using a terminal/command line.
 
 ## Usage
 
@@ -10,6 +10,9 @@ webtoon-dl "<your-webtoon-episode-url>"
 
 # download entire series, default 10 episodes per pdf
 webtoon-dl "<your-webtoon-series-url>"
+
+# download as cbz (default is pdf)
+webtoon-dl --format cbz "<your-webtoon-series-url>"
 
 # specify a range of episodes (inclusive on both ends)
 webtoon-dl --min-ep=10 --max-ep=20 "<your-webtoon-series-url>"
