@@ -34,7 +34,7 @@ type EpisodeBatch struct {
 
 type ComicFile interface {
 	addImage([]byte) error
-	save(outputPath string) error
+	save(outFile string) error
 }
 
 type PDFComicFile struct {
