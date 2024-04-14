@@ -443,9 +443,10 @@ func main() {
 			}
 			fmt.Println(
 				fmt.Sprintf(
-					"saving episodes %d through %d: added page %d/%d",
+					"saving episodes %d through %d of %d: added page %d/%d",
 					episodeBatch.minEp,
 					episodeBatch.maxEp,
+					totalEpisodes,
 					idx+1,
 					len(episodeBatch.imgLinks),
 				),
