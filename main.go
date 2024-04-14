@@ -32,25 +32,25 @@ type EpisodeBatch struct {
 	maxEp    int
 }
 
-type Comic interface {
+type ComicFile interface {
 	addImage([]byte) error
 	save(outputPath string) error
 }
 
-type PDFComic struct {
+type PDFComicFile struct {
 	pdf *gopdf.GoPdf
 }
 
-// validate PDFComic implements Comic
-var _ Comic = &PDFComic{}
+// validate PDFComicFile implements ComicFile
+var _ ComicFile = &PDFComicFile{}
 
-func newPDFComic() *PDFComic {
+func newPDFComicFile() *PDFComicFile {
 	pdf := gopdf.GoPdf{}
 	pdf.Start(gopdf.Config{Unit: gopdf.UnitPT, PageSize: *gopdf.PageSizeA4})
-	return &PDFComic{pdf: &pdf}
+	return &PDFComicFile{pdf: &pdf}
 }
 
-func (c *PDFComic) addImage(img []byte) error {
+func (c *PDFComicFile) addImage(img []byte) error {
 	holder, err := gopdf.ImageHolderByBytes(img)
 	if err != nil {
 		return err
@@ -72,29 +72,29 @@ func (c *PDFComic) addImage(img []byte) error {
 	return c.pdf.ImageByHolder(holder, 0, 0, nil)
 }
 
-func (c *PDFComic) save(outputPath string) error {
+func (c *PDFComicFile) save(outputPath string) error {
 	return c.pdf.WritePdf(outputPath)
 }
 
-type CBZComic struct {
+type CBZComicFile struct {
 	zipWriter *zip.Writer
 	outFile   *os.File
 	numFiles  int
 }
 
-// validate CBZComic implements Comic
-var _ Comic = &CBZComic{}
+// validate CBZComicFile implements ComicFile
+var _ ComicFile = &CBZComicFile{}
 
-func newCBZComic() (*CBZComic, error) {
+func newCBZComicFile() (*CBZComicFile, error) {
 	out, err := os.CreateTemp("", "output.tmp.cbz")
 	if err != nil {
 		return nil, err
 	}
 	zipWriter := zip.NewWriter(out)
-	return &CBZComic{zipWriter: zipWriter, outFile: out, numFiles: 0}, nil
+	return &CBZComicFile{zipWriter: zipWriter, outFile: out, numFiles: 0}, nil
 }
 
-func (c *CBZComic) addImage(img []byte) error {
+func (c *CBZComicFile) addImage(img []byte) error {
 	f, err := c.zipWriter.Create(fmt.Sprintf("%d.jpg", c.numFiles))
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func (c *CBZComic) addImage(img []byte) error {
 	return nil
 }
 
-func (c *CBZComic) save(outputPath string) error {
+func (c *CBZComicFile) save(outputPath string) error {
 	err := c.zipWriter.Close()
 	if err != nil {
 		return err
@@ -342,37 +342,37 @@ func fetchImage(imgLink string) []byte {
 	return buff.Bytes()
 }
 
-func addImgToPdf(pdf *gopdf.GoPdf, imgLink string) error {
-	img := fetchImage(imgLink)
-	holder, err := gopdf.ImageHolderByBytes(img)
-	if err != nil {
-		return err
+func getComicFile(format string) ComicFile {
+	var comic ComicFile
+	var err error
+	comic = newPDFComicFile()
+	if format == "cbz" {
+		comic, err = newCBZComicFile()
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
 	}
-
-	d, _, err := image.DecodeConfig(bytes.NewReader(img))
-	if err != nil {
-		return err
-	}
-
-	// gopdf assumes dpi 128 https://github.com/signintech/gopdf/issues/168
-	// W and H are in points, 1 point = 1/72 inch
-	// convert pixels (Width and Height) to points
-	// subtract 1 point to account for margins
-	pdf.AddPageWithOption(gopdf.PageOption{PageSize: &gopdf.Rect{
-		W: float64(d.Width)*72/128 - 1,
-		H: float64(d.Height)*72/128 - 1,
-	}})
-	return pdf.ImageByHolder(holder, 0, 0, nil)
+	return comic
 }
 
-func main() {
-	if len(os.Args) < 2 {
+type Opts struct {
+	url        string
+	minEp      int
+	maxEp      int
+	epsPerFile int
+	format     string
+}
+
+func parseOpts(args []string) Opts {
+	if len(args) < 2 {
 		fmt.Println("Usage: webtoon-dl <url>")
 		os.Exit(1)
 	}
 	minEp := flag.Int("min-ep", 0, "Minimum episode number to download (inclusive)")
 	maxEp := flag.Int("max-ep", math.MaxInt, "Maximum episode number to download (inclusive)")
 	epsPerFile := flag.Int("eps-per-file", 10, "Number of episodes to put in each PDF file")
+	format := flag.String("format", "pdf", "Output format (pdf or cbz)")
 	flag.Parse()
 	if *minEp > *maxEp {
 		fmt.Println("min-ep must be less than or equal to max-ep")
@@ -388,103 +388,71 @@ func main() {
 	}
 
 	url := os.Args[len(os.Args)-1]
-	episodeBatches := getEpisodeBatches(url, *minEp, *maxEp, *epsPerFile)
+	return Opts{
+		url:        url,
+		minEp:      *minEp,
+		maxEp:      *maxEp,
+		epsPerFile: *epsPerFile,
+		format:     *format,
+	}
+}
 
+func getOutFile(opts Opts, episodeBatch EpisodeBatch) string {
+	outURL := strings.ReplaceAll(opts.url, "http://", "")
+	outURL = strings.ReplaceAll(outURL, "https://", "")
+	outURL = strings.ReplaceAll(outURL, "www.", "")
+	outURL = strings.ReplaceAll(outURL, "webtoons.com/", "")
+	outURL = strings.Split(outURL, "?")[0]
+	outURL = strings.ReplaceAll(outURL, "/viewer", "")
+	outURL = strings.ReplaceAll(outURL, "/", "-")
+	if episodeBatch.minEp != episodeBatch.maxEp {
+		outURL = fmt.Sprintf("%s-epNo%d-epNo%d.%s", outURL, episodeBatch.minEp, episodeBatch.maxEp, opts.format)
+	} else {
+		outURL = fmt.Sprintf("%s-epNo%d.%s", outURL, episodeBatch.minEp, opts.format)
+	}
+	return outURL
+}
+
+func main() {
+	opts := parseOpts(os.Args)
+	episodeBatches := getEpisodeBatches(opts.url, opts.minEp, opts.maxEp, opts.epsPerFile)
 	totalPages := 0
 	for _, episodeBatch := range episodeBatches {
 		totalPages += len(episodeBatch.imgLinks)
 	}
 	totalEpisodes := episodeBatches[len(episodeBatches)-1].maxEp - episodeBatches[0].minEp + 1
 	fmt.Println(fmt.Sprintf("found %d total image links across %d episodes", totalPages, totalEpisodes))
-	fmt.Println(fmt.Sprintf("saving into %d files with max of %d episodes per file", len(episodeBatches), *epsPerFile))
+	fmt.Println(fmt.Sprintf("saving into %d files with max of %d episodes per file", len(episodeBatches), opts.epsPerFile))
 
 	for _, episodeBatch := range episodeBatches {
 		var err error
-		outURL := strings.ReplaceAll(url, "http://", "")
-		outURL = strings.ReplaceAll(outURL, "https://", "")
-		outURL = strings.ReplaceAll(outURL, "www.", "")
-		outURL = strings.ReplaceAll(outURL, "webtoons.com/", "")
-		outURL = strings.Split(outURL, "?")[0]
-		outURL = strings.ReplaceAll(outURL, "/viewer", "")
-		outURL = strings.ReplaceAll(outURL, "/", "-")
-		if episodeBatch.minEp != episodeBatch.maxEp {
-			outURL = fmt.Sprintf("%s-epNo%d-epNo%d", outURL, episodeBatch.minEp, episodeBatch.maxEp)
-		} else {
-			outURL = fmt.Sprintf("%s-epNo%d", outURL, episodeBatch.minEp)
-		}
-		//comic := newPDFComic()
-		//outPath := outURL + ".pdf"
-		comic, err := newCBZComic()
-		if err != nil {
-			fmt.Println(err.Error())
-			os.Exit(1)
-		}
-		outPath := outURL + ".cbz"
+		outFile := getOutFile(opts, episodeBatch)
+		comicFile := getComicFile(opts.format)
 		for idx, imgLink := range episodeBatch.imgLinks {
 			if strings.Contains(imgLink, ".gif") {
 				fmt.Println(fmt.Sprintf("WARNING: skipping gif %s", imgLink))
 				continue
 			}
-			err := comic.addImage(fetchImage(imgLink))
+			err := comicFile.addImage(fetchImage(imgLink))
 			if err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
-			fmt.Println(fmt.Sprintf("saving episodes %d through %d: added page %d/%d", episodeBatch.minEp, episodeBatch.maxEp, idx+1, len(episodeBatch.imgLinks)))
+			fmt.Println(
+				fmt.Sprintf(
+					"saving episodes %d through %d: added page %d/%d",
+					episodeBatch.minEp,
+					episodeBatch.maxEp,
+					idx+1,
+					len(episodeBatch.imgLinks),
+				),
+			)
 		}
-
-		err = comic.save(outPath)
+		err = comicFile.save(outFile)
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)
 		}
-		fmt.Println(fmt.Sprintf("saved to %s", outPath))
+		fmt.Println(fmt.Sprintf("saved to %s", outFile))
 	}
-
-	//createCbz := func(episodeBatches []EpisodeBatch, outPath string) error {
-	//	out, err := os.Create(outPath)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	defer func(out *os.File) {
-	//		err := out.Close()
-	//		if err != nil {
-	//			fmt.Println(err.Error())
-	//			os.Exit(1)
-	//		}
-	//	}(out)
-	//
-	//	zipWriter := zip.NewWriter(out)
-	//	for _, episodeBatch := range episodeBatches {
-	//		for idx, imgLink := range episodeBatch.imgLinks {
-	//			if strings.Contains(imgLink, ".gif") {
-	//				fmt.Println(fmt.Sprintf("WARNING: skipping gif %s", imgLink))
-	//				continue
-	//			}
-	//			img := fetchImage(imgLink)
-	//			f, err := zipWriter.Create(fmt.Sprintf("%d.jpg", idx))
-	//			if err != nil {
-	//				return err
-	//			}
-	//			_, err = f.Write(img)
-	//			if err != nil {
-	//				return err
-	//			}
-	//			fmt.Println(fmt.Sprintf("saving episodes %d through %d: added page %d/%d", episodeBatch.minEp, episodeBatch.maxEp, idx+1, len(episodeBatch.imgLinks)))
-	//		}
-	//	}
-	//	err = zipWriter.Close()
-	//	if err != nil {
-	//		return err
-	//	}
-	//	return nil
-	//}
-	//// create cbz output from image links
-	//outPath := "output.cbz"
-	//err := createCbz(episodeBatches, outPath)
-	//if err != nil {
-	//	fmt.Println(err.Error())
-	//	os.Exit(1)
-	//}
-	//fmt.Println(fmt.Sprintf("saved to %s", outPath))
 }
