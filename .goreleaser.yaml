@@ -1,3 +1,5 @@
+version: 2
+
 project_name: webtoon-dl
 
 before:
@@ -53,7 +55,7 @@ brews:
   - name: webtoon-dl
     homepage: https://github.com/robinovitch61/webtoon-dl
     description: "A cli for downloading content from webtoon.com"
-    folder: Formula
+    directory: Formula
     commit_author:
       name: "Leo Robinovitch"
       email: "leorobinovitch@gmail.com"
