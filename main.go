@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/anaskhan96/soup"
-	"github.com/signintech/gopdf"
 	"image"
 	"io"
 	"math"
@@ -18,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/anaskhan96/soup"
+	"github.com/signintech/gopdf"
 )
 
 type MotiontoonJson struct {
@@ -33,7 +34,7 @@ type EpisodeBatch struct {
 }
 
 type ComicFile interface {
-	addImage([]byte) error
+	addImage([]byte, string) error
 	save(outFile string) error
 }
 
@@ -50,7 +51,7 @@ func newPDFComicFile() *PDFComicFile {
 	return &PDFComicFile{pdf: &pdf}
 }
 
-func (c *PDFComicFile) addImage(img []byte) error {
+func (c *PDFComicFile) addImage(img []byte, ext string) error {
 	holder, err := gopdf.ImageHolderByBytes(img)
 	if err != nil {
 		return err
@@ -91,8 +92,8 @@ func newCBZComicFile() (*CBZComicFile, error) {
 	return &CBZComicFile{zipWriter: zipWriter, buffer: buffer, numFiles: 0}, nil
 }
 
-func (c *CBZComicFile) addImage(img []byte) error {
-	f, err := c.zipWriter.Create(fmt.Sprintf("%010d.jpg", c.numFiles))
+func (c *CBZComicFile) addImage(img []byte, ext string) error {
+	f, err := c.zipWriter.Create(fmt.Sprintf("%010d.%s", c.numFiles, ext))
 	if err != nil {
 		return err
 	}
@@ -431,12 +432,20 @@ func main() {
 		var err error
 		outFile := getOutFile(opts, episodeBatch)
 		comicFile := getComicFile(opts.format)
+		var lowercaseImgLink string
 		for idx, imgLink := range episodeBatch.imgLinks {
-			if strings.Contains(imgLink, ".gif") {
+			lowercaseImgLink = strings.ToLower(imgLink)
+			if strings.Contains(lowercaseImgLink, ".gif") {
 				fmt.Println(fmt.Sprintf("WARNING: skipping gif %s", imgLink))
 				continue
 			}
-			err := comicFile.addImage(fetchImage(imgLink))
+
+			if strings.Contains(lowercaseImgLink, ".png") {
+				err = comicFile.addImage(fetchImage(imgLink), "png")
+			} else {
+				err = comicFile.addImage(fetchImage(imgLink), "jpg")
+			}
+
 			if err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
