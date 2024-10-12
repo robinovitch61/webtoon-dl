@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	_ "image/gif"
 	"io"
 	"math"
 	"net/http"
