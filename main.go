@@ -21,6 +21,8 @@ import (
 	"github.com/signintech/gopdf"
 )
 
+const numRetries = 3
+
 type MotiontoonJson struct {
 	Assets struct {
 		Image map[string]string `json:"image"`
@@ -173,14 +175,24 @@ func getOzPageImgLinks(doc soup.Root) []string {
 	return imgs
 }
 
-func getImgLinksForEpisode(url string) []string {
+func getImgLinksForEpisode(url string, retriesLeft int, delayMs int) []string {
 	resp, err := soup.Get(url)
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(time.Duration(delayMs) * time.Millisecond)
 	if err != nil {
 		fmt.Println(fmt.Sprintf("Error fetching page: %v", err))
 		os.Exit(1)
 	}
 	doc := soup.HTMLParse(resp)
+	if isRateLimited(doc) {
+		if retriesLeft == 0 {
+			panic("429 Too Many Requests, all retries failed")
+		} else {
+			seconds := 5 * (numRetries - retriesLeft + 1)
+			println(fmt.Sprintf("429 Too Many Requests, retrying in %d seconds", seconds))
+			time.Sleep(time.Duration(seconds) * time.Second)
+			return getImgLinksForEpisode(url, retriesLeft-1, delayMs)
+		}
+	}
 	imgs := doc.Find("div", "class", "viewer_lst").FindAll("img")
 	if len(imgs) == 0 {
 		// some comics seem to serve images from a different backend, something about oz
@@ -195,13 +207,23 @@ func getImgLinksForEpisode(url string) []string {
 	return imgLinks
 }
 
-func getEpisodeLinksForPage(url string) ([]string, error) {
+func getEpisodeLinksForPage(url string, retriesLeft int, delayMs int) ([]string, error) {
 	resp, err := soup.Get(url)
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(time.Duration(delayMs) * time.Millisecond)
 	if err != nil {
 		return []string{}, fmt.Errorf("error fetching page: %v", err)
 	}
 	doc := soup.HTMLParse(resp)
+	if isRateLimited(doc) {
+		if retriesLeft == 0 {
+			return []string{}, fmt.Errorf("429 Too Many Requests")
+		} else {
+			seconds := 5 * (numRetries - retriesLeft + 1)
+			println(fmt.Sprintf("429 Too Many Requests, retrying in %d seconds", seconds))
+			time.Sleep(time.Duration(seconds) * time.Second)
+			return getEpisodeLinksForPage(url, retriesLeft-1, delayMs)
+		}
+	}
 	episodeURLs := doc.Find("div", "class", "detail_lst").FindAll("a")
 	var links []string
 	for _, episodeURL := range episodeURLs {
@@ -212,18 +234,18 @@ func getEpisodeLinksForPage(url string) ([]string, error) {
 	return links, nil
 }
 
-func getEpisodeBatches(url string, minEp, maxEp, epsPerBatch int) []EpisodeBatch {
+func getEpisodeBatches(url string, minEp, maxEp, epsPerBatch, delayMs int) []EpisodeBatch {
 	if strings.Contains(url, "/viewer") {
 		// assume viewing single episode
 		return []EpisodeBatch{{
-			imgLinks: getImgLinksForEpisode(url),
+			imgLinks: getImgLinksForEpisode(url, numRetries, delayMs),
 			minEp:    episodeNo(url),
 			maxEp:    episodeNo(url),
 		}}
 	} else {
 		// assume viewing set of episodes
 		println("scanning all pages to get all episode links")
-		allEpisodeLinks := getAllEpisodeLinks(url)
+		allEpisodeLinks := getAllEpisodeLinks(url, delayMs)
 		println(fmt.Sprintf("found %d total episodes", len(allEpisodeLinks)))
 
 		var desiredEpisodeLinks []string
@@ -250,7 +272,7 @@ func getEpisodeBatches(url string, minEp, maxEp, epsPerBatch int) []EpisodeBatch
 				end = len(desiredEpisodeLinks)
 			}
 			episodeBatches = append(episodeBatches, EpisodeBatch{
-				imgLinks: getImgLinksForEpisodes(desiredEpisodeLinks[start:end], actualMaxEp),
+				imgLinks: getImgLinksForEpisodes(desiredEpisodeLinks[start:end], actualMaxEp, delayMs),
 				minEp:    episodeNo(desiredEpisodeLinks[start]),
 				maxEp:    episodeNo(desiredEpisodeLinks[end-1]),
 			})
@@ -259,13 +281,13 @@ func getEpisodeBatches(url string, minEp, maxEp, epsPerBatch int) []EpisodeBatch
 	}
 }
 
-func getAllEpisodeLinks(url string) []string {
+func getAllEpisodeLinks(url string, delayMs int) []string {
 	re := regexp.MustCompile("&page=[0-9]+")
 	episodeLinkSet := make(map[string]struct{})
 	foundLastPage := false
 	for page := 1; !foundLastPage; page++ {
 		url = re.ReplaceAllString(url, "") + fmt.Sprintf("&page=%d", page)
-		episodeLinks, err := getEpisodeLinksForPage(url)
+		episodeLinks, err := getEpisodeLinksForPage(url, numRetries, delayMs)
 		if err != nil {
 			break
 		}
@@ -307,11 +329,11 @@ func episodeNo(episodeLink string) int {
 	return episodeNo
 }
 
-func getImgLinksForEpisodes(episodeLinks []string, actualMaxEp int) []string {
+func getImgLinksForEpisodes(episodeLinks []string, actualMaxEp, delayMs int) []string {
 	var allImgLinks []string
 	for _, episodeLink := range episodeLinks {
 		println(fmt.Sprintf("fetching image links for episode %d/%d", episodeNo(episodeLink), actualMaxEp))
-		allImgLinks = append(allImgLinks, getImgLinksForEpisode(episodeLink)...)
+		allImgLinks = append(allImgLinks, getImgLinksForEpisode(episodeLink, numRetries, delayMs)...)
 	}
 	return allImgLinks
 }
@@ -366,6 +388,7 @@ type Opts struct {
 	maxEp      int
 	epsPerFile int
 	format     string
+	delayMs    int
 }
 
 func parseOpts(args []string) Opts {
@@ -377,6 +400,7 @@ func parseOpts(args []string) Opts {
 	maxEp := flag.Int("max-ep", math.MaxInt, "Maximum episode number to download (inclusive)")
 	epsPerFile := flag.Int("eps-per-file", 10, "Number of episodes to put in each PDF file")
 	format := flag.String("format", "pdf", "Output format (pdf or cbz)")
+	delayMs := flag.Int("delay-ms", 1000, "Delay in milliseconds between requests")
 	flag.Parse()
 	if *minEp > *maxEp {
 		fmt.Println("min-ep must be less than or equal to max-ep")
@@ -390,6 +414,10 @@ func parseOpts(args []string) Opts {
 		fmt.Println("min-ep must be greater than or equal to 0")
 		os.Exit(1)
 	}
+	if *delayMs < 0 {
+		fmt.Println("delay-ms must be greater than or equal to 0")
+		os.Exit(1)
+	}
 
 	url := os.Args[len(os.Args)-1]
 	return Opts{
@@ -398,6 +426,7 @@ func parseOpts(args []string) Opts {
 		maxEp:      *maxEp,
 		epsPerFile: *epsPerFile,
 		format:     *format,
+		delayMs:    *delayMs,
 	}
 }
 
@@ -417,9 +446,13 @@ func getOutFile(opts Opts, episodeBatch EpisodeBatch) string {
 	return outURL
 }
 
+func isRateLimited(doc soup.Root) bool {
+	return strings.Contains(doc.HTML(), "429 Too Many Requests")
+}
+
 func main() {
 	opts := parseOpts(os.Args)
-	episodeBatches := getEpisodeBatches(opts.url, opts.minEp, opts.maxEp, opts.epsPerFile)
+	episodeBatches := getEpisodeBatches(opts.url, opts.minEp, opts.maxEp, opts.epsPerFile, opts.delayMs)
 	totalPages := 0
 	for _, episodeBatch := range episodeBatches {
 		totalPages += len(episodeBatch.imgLinks)
