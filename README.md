@@ -22,6 +22,9 @@ webtoon-dl --min-ep=10 --max-ep=20 --eps-per-file=1 "<your-webtoon-series-url>"
 
 # download entire series into a single file (GENERALLY NOT RECOMMENDED)
 webtoon-dl --eps-per-file=1000000 "<your-webtoon-series-url>"
+
+ # change the delay between requests (default is 1000ms) - NOTE: anything less than 1000ms may result in rate limiting
+webtoon-dl --delay-ms=2000 "<your-webtoon-series-url>"
 ```
 
 > [!IMPORTANT]
