@@ -54,6 +54,10 @@ func newPDFComicFile() *PDFComicFile {
 }
 
 func (c *PDFComicFile) addImage(img []byte, ext string) error {
+	if len(img) == 0 {
+		fmt.Println("WARNING: empty image, skipping")
+		return nil
+	}
 	holder, err := gopdf.ImageHolderByBytes(img)
 	if err != nil {
 		return err
@@ -95,6 +99,10 @@ func newCBZComicFile() (*CBZComicFile, error) {
 }
 
 func (c *CBZComicFile) addImage(img []byte, ext string) error {
+	if len(img) == 0 {
+		fmt.Println("WARNING: empty image, skipping")
+		return nil
+	}
 	f, err := c.zipWriter.Create(fmt.Sprintf("%010d.%s", c.numFiles, ext))
 	if err != nil {
 		return err
