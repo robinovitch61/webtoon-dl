@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	_ "image/gif"
 	"io"
 	"math"
 	"net/http"
@@ -477,8 +478,7 @@ func main() {
 		for idx, imgLink := range episodeBatch.imgLinks {
 			lowercaseImgLink = strings.ToLower(imgLink)
 			if strings.Contains(lowercaseImgLink, ".gif") {
-				fmt.Println(fmt.Sprintf("WARNING: skipping gif %s", imgLink))
-				continue
+				err = comicFile.addImage(fetchImage(imgLink), "gif")
 			}
 
 			if strings.Contains(lowercaseImgLink, ".png") {
