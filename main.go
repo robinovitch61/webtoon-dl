@@ -232,7 +232,11 @@ func getEpisodeLinksForPage(url string, retriesLeft int, delayMs int) ([]string,
 			return getEpisodeLinksForPage(url, retriesLeft-1, delayMs)
 		}
 	}
-	episodeURLs := doc.Find("div", "class", "detail_lst").FindAll("a")
+	detailList := doc.Find("ul", "id", "_listUl")
+	if detailList.Error != nil {
+		return []string{}, fmt.Errorf("could not find episode list on page: %v", detailList.Error)
+	}
+	episodeURLs := detailList.FindAll("a")
 	var links []string
 	for _, episodeURL := range episodeURLs {
 		if href := episodeURL.Attrs()["href"]; strings.Contains(href, "/viewer") {
