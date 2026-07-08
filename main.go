@@ -10,7 +10,9 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -385,6 +387,22 @@ func fetchImage(imgLink string) []byte {
 	return buff.Bytes()
 }
 
+func imageExt(imgLink string) string {
+	lowercaseImgLink := strings.ToLower(imgLink)
+	if parsedURL, err := url.Parse(lowercaseImgLink); err == nil {
+		lowercaseImgLink = parsedURL.Path
+	}
+
+	switch path.Ext(lowercaseImgLink) {
+	case ".gif":
+		return "gif"
+	case ".png":
+		return "png"
+	default:
+		return "jpg"
+	}
+}
+
 func getComicFile(format string) ComicFile {
 	var comic ComicFile
 	var err error
@@ -482,19 +500,8 @@ func main() {
 		var err error
 		outFile := getOutFile(opts, episodeBatch)
 		comicFile := getComicFile(opts.format)
-		var lowercaseImgLink string
 		for idx, imgLink := range episodeBatch.imgLinks {
-			lowercaseImgLink = strings.ToLower(imgLink)
-			if strings.Contains(lowercaseImgLink, ".gif") {
-				fmt.Println(fmt.Sprintf("WARNING: skipping gif %s", imgLink))
-				continue
-			}
-
-			if strings.Contains(lowercaseImgLink, ".png") {
-				err = comicFile.addImage(fetchImage(imgLink), "png")
-			} else {
-				err = comicFile.addImage(fetchImage(imgLink), "jpg")
-			}
+			err = comicFile.addImage(fetchImage(imgLink), imageExt(imgLink))
 
 			if err != nil {
 				fmt.Println(err.Error())

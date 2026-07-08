@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/anaskhan96/soup v1.2.5
-	github.com/signintech/gopdf v0.20.0
+	github.com/signintech/gopdf v0.29.0
 )
 
 require (
